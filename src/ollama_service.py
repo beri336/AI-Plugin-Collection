@@ -6,6 +6,7 @@ import subprocess
 import platform
 import shutil
 import socket
+import time
 import re
 
 import psutil
@@ -87,3 +88,47 @@ class OllamaService:
             
         except (subprocess.TimeoutExpired, subprocess.SubprocessError):
             return None
+
+    def start(self, timeout: int = 10) -> bool:
+        if self._is_running():
+            return True
+        
+        try:
+            if platform.system() == "Windows":
+                # Option 1: With CREATE_NO_WINDOW flag (Windows-specific)
+                DETACHED_PROCESS = 0x00000008
+                subprocess.Popen(
+                    ["ollama", "serve"],
+                    creationflags=DETACHED_PROCESS,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL
+                )
+            else:
+                # Unix/Linux/macOS
+                subprocess.Popen(
+                    ["ollama", "serve"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL
+                )
+            
+            # Wait until service is available
+            for _ in range(timeout):
+                if self.is_api_reachable():
+                    return True
+                time.sleep(1)
+            
+            return False
+            
+        except (OSError, subprocess.SubprocessError) as e:
+            return False
+
+    def stop(self) -> bool:
+        for proc in psutil.process_iter(['name', 'pid']):
+            try:
+                if 'ollama' in proc.info['name'].lower():
+                    proc.terminate()
+                    proc.wait(timeout=5)
+                    return True
+            except (psutil.NoSuchProcess, psutil.TimeoutExpired):
+                continue
+        return False
