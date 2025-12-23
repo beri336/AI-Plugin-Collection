@@ -14,6 +14,7 @@ class OllamaAPIManager:
         
         self.is_running: bool = self._check_connection()
         self.list_of_models: list[str] = []
+        self.list_of_running_models: list[str] = []
 
     def get_host(self):
         return self.host
@@ -33,6 +34,10 @@ class OllamaAPIManager:
     def refresh_list_of_models(self):
         self.list_of_models = []
         self.list_of_models = self.list_model_names()
+
+    def refresh_list_of_running_models(self):
+        self.list_of_running_models = []
+        self.list_of_running_models = self._get_running_model_names()
 
 # Model-Management
     def _check_connection(self) -> bool:
@@ -277,3 +282,127 @@ class OllamaAPIManager:
             return False
         except Exception as e:
             return False
+
+    def get_running_models(self):
+        if not self.is_running:
+            raise RuntimeError("Ollama is not running!")
+        
+        try:
+            response = requests.get(
+                "http://localhost:11434/api/ps",
+                timeout=5
+            )
+            response.raise_for_status()
+            
+            data = response.json()
+            running_models = []
+            
+            for model in data.get('models', []):
+                # Convert size from bytes to readable format
+                size_bytes = model.get('size', 0)
+                if size_bytes >= 1_000_000_000:
+                    size = f"{size_bytes / 1_000_000_000:.1f} GB"
+                else:
+                    size = f"{size_bytes / 1_000_000:.0f} MB"
+                
+                # Format expires_at to relative time
+                expires_at = model.get('expires_at', '')
+                if expires_at:
+                    from datetime import datetime
+                    try:
+                        exp_time = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
+                        now = datetime.now(exp_time.tzinfo)
+                        diff = exp_time - now
+                        
+                        minutes = int(diff.total_seconds() / 60)
+                        if minutes > 0:
+                            until = f"{minutes} minute{'s' if minutes != 1 else ''} from now"
+                        else:
+                            until = "expired"
+                    except:
+                        until = expires_at
+                else:
+                    until = ''
+                
+                running_models.append({
+                    'name': model.get('name', ''),
+                    'size': size,
+                    'processor': f"{model.get('size_vram', 0) / size_bytes * 100:.0f}% GPU" if size_bytes > 0 else 'CPU',
+                    'until': until
+                })
+            
+            self.list_of_running_models = running_models
+            return running_models
+            
+        except requests.RequestException as e:
+            return []
+        except Exception as e:
+            return []
+
+    def _get_running_model_names(self) -> list[str]:
+        running = self.get_running_models()
+        return [model['name'] for model in running]
+
+    def start_running_model(self, model: str) -> bool:
+        if not self.is_running:
+            raise RuntimeError("Ollama is not running!")
+        
+        try:
+            response = requests.post(
+                "http://localhost:11434/api/generate",
+                json={
+                    "model": model,
+                    "prompt": "",
+                    "stream": False,
+                    "keep_alive": "5m"  # Keep model loaded for 5 minutes
+                },
+                timeout=60
+            )
+            response.raise_for_status()
+            
+            return True
+            
+        except requests.RequestException as e:
+            return False
+        except Exception as e:
+            return False
+
+    def stop_running_model(self, model: str, force: bool = False) -> bool:
+        if not self.is_running:
+            raise RuntimeError("Ollama is not running!")
+        
+        # Check if model is actually running
+        if not force:
+            running_models = self._get_running_model_names()
+            if model not in running_models:
+                return False
+        
+        try:
+            response = requests.post(
+                "http://localhost:11434/api/generate",
+                json={
+                    "model": model,
+                    "keep_alive": 0  # Unload immediately
+                },
+                timeout=10
+            )
+            response.raise_for_status()
+            
+            return True
+            
+        except requests.RequestException as e:
+            return False
+        except Exception as e:
+            return False
+
+    def stop_all_running_models(self) -> dict[str, bool]:
+        if not self.is_running:
+            raise RuntimeError("Ollama is not running!")
+        
+        running_models = self._get_running_model_names()
+        results = {}
+        
+        for model in running_models:
+            results[model] = self.stop_running_model(model, force=True)
+        
+        return results
