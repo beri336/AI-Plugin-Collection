@@ -2,6 +2,8 @@
 
 from datetime import datetime
 
+import json
+
 import requests
 
 class OllamaAPIManager:
@@ -189,3 +191,89 @@ class OllamaAPIManager:
 
     def model_exists(self, model: str) -> bool:
         return model in self.list_model_names()
+
+    def pull_model(self, model: str, stream: bool = True) -> bool:
+        if not self.is_running:
+            raise RuntimeError("Ollama is not running!")
+        
+        try:
+            response = requests.post(
+                "http://localhost:11434/api/pull",
+                json={"name": model, "stream": stream},
+                stream=stream,
+                timeout=600
+            )
+            response.raise_for_status()
+            
+            if stream:
+                # Process streaming response
+                for line in response.iter_lines():
+                    if line:
+                        try:
+                            progress = json.loads(line.decode('utf-8'))
+                            
+                            # Yield or callback for progress
+                            if progress.get('status') == 'success':
+                                return True
+                        except json.JSONDecodeError:
+                            continue
+            
+            return True
+            
+        except requests.RequestException as e:
+            return False
+
+    def pull_model_with_progress(self, model: str):
+        if not self.is_running:
+            raise RuntimeError("Ollama is not running!")
+        
+        try:
+            response = requests.post(
+                "http://localhost:11434/api/pull",
+                json={"name": model, "stream": True},
+                stream=True,
+                timeout=600
+            )
+            response.raise_for_status()
+            
+            for line in response.iter_lines():
+                if line:
+                    try:
+                        progress = json.loads(line.decode('utf-8'))
+                        yield progress
+                    except json.JSONDecodeError:
+                        continue
+                        
+        except requests.RequestException as e:
+            yield {"status": "error", "error": str(e)}
+
+    def delete_model(self, model: str, force: bool = False) -> bool:
+        if not self.is_running:
+            raise RuntimeError("Ollama is not running!")
+        
+        # Check if model exists
+        if not force:
+            if not self.list_of_models:
+                self.list_model_names()
+            
+            if model not in self.list_of_models:
+                return False
+        
+        try:
+            response = requests.delete(
+                "http://localhost:11434/api/delete",
+                json={"name": model},
+                timeout=30
+            )
+            response.raise_for_status()
+            
+            # Update internal model list
+            if model in self.list_of_models:
+                self.list_of_models.remove(model)
+            
+            return True
+            
+        except requests.RequestException as e:
+            return False
+        except Exception as e:
+            return False
