@@ -1,9 +1,11 @@
 # src/ollama_service.py
 
 from typing import Optional
+from pathlib import Path
 
 import subprocess
 import platform
+import logging
 import shutil
 import socket
 import time
@@ -13,8 +15,11 @@ import psutil
 
 
 class OllamaService:
+    logger: logging.Logger | None = None
+
     def __init__(self) -> None:
-        pass
+        if OllamaService.logger is None:
+            OllamaService.setup_logger()
 
     @staticmethod
     def get_os_name() -> str:
@@ -132,3 +137,48 @@ class OllamaService:
             except (psutil.NoSuchProcess, psutil.TimeoutExpired):
                 continue
         return False
+
+# Logger
+    @classmethod
+    def setup_logger(
+        cls,
+        level: int = logging.INFO,
+        log_file: str | None = None,
+        console: bool = True
+    ) -> logging.Logger:
+        cls.logger = logging.getLogger(__name__)
+        cls.logger.setLevel(level)
+        
+        # Remove existing handlers
+        cls.logger.handlers.clear()
+        
+        # Formatter
+        formatter = logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+        
+        # Console handler
+        if console:
+            console_handler = logging.StreamHandler()
+            console_handler.setLevel(level)
+            console_handler.setFormatter(formatter)
+            cls.logger.addHandler(console_handler)
+        
+        # File handler
+        if log_file:
+            log_path = Path(log_file)
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            file_handler = logging.FileHandler(log_file)
+            file_handler.setLevel(level)
+            file_handler.setFormatter(formatter)
+            cls.logger.addHandler(file_handler)
+        
+        return cls.logger
+
+    @classmethod
+    def get_logger(cls) -> logging.Logger | None:
+        if cls.logger is None:
+            cls.setup_logger()
+        return cls.logger
