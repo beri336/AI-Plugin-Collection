@@ -1,9 +1,15 @@
 # src/ollama_service.py
 
+from typing import Optional
+
+import subprocess
 import platform
 import shutil
+import socket
+import re
 
-from typing import Optional
+import psutil
+
 
 class OllamaService:
     def __init__(self) -> None:
@@ -24,3 +30,60 @@ class OllamaService:
 
     def get_installation_path(self) -> Optional[str]:
         return shutil.which("ollama")
+
+    def is_process_running(self) -> bool:
+        for proc in psutil.process_iter(['name']):
+            try:
+                if 'ollama' in proc.info['name'].lower():
+                    return True
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+        return False
+
+    def is_api_reachable(self) -> bool:
+        host: str = "127.0.0.1"
+        port: int = 11434
+        timeout: float = 1.0
+    
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                sock.settimeout(timeout)
+                sock.connect((host, port))
+                return True
+        except (socket.timeout, ConnectionRefusedError, OSError) as e:
+            return False
+
+    def _is_running(self) -> bool:
+        return self.is_process_running() and self.is_api_reachable()
+
+    def get_status(self) -> dict:
+        return {
+            "os": self.get_os_name(),
+            "installed": self.is_installed(),
+            "installation_path": self.get_installation_path(),
+            "process_running": self.is_process_running(),
+            "api_reachable": self.is_api_reachable(),
+            "fully_operational": self._is_running(),
+            "version": self.get_version()
+        }
+
+    def get_version(self) -> Optional[str]:
+        try:
+            result = subprocess.run(
+                ["ollama", "--version"],
+                capture_output=True,
+                text=True,
+                timeout=2,
+                check=False
+            )
+            
+            if result.returncode == 0:
+                version_string = result.stdout.strip()
+                # Extract version number
+                match = re.search(r'(\d+\.\d+\.\d+)', version_string)
+                return match.group(1) if match else None
+            
+            return None
+            
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError):
+            return None
