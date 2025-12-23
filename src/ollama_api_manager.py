@@ -406,3 +406,72 @@ class OllamaAPIManager:
             results[model] = self.stop_running_model(model, force=True)
         
         return results
+
+# AI-Communication
+    def generate(self, model: str, prompt: str, options: dict | None = None) -> dict | None:
+        if not self.is_running:
+            raise RuntimeError("Ollama is not running!")
+        
+        try:
+            payload = {
+                "model": model,
+                "prompt": prompt,
+                "stream": False
+            }
+            
+            if options:
+                payload["options"] = options
+            
+            response = requests.post(
+                self._get_url("/api/generate"),
+                json=payload,
+                timeout=120
+            )
+            response.raise_for_status()
+            
+            data = response.json()
+            return data
+            
+        except requests.RequestException as e:
+            return None
+        except Exception as e:
+            return None
+
+    def generate_stream(self, model: str, prompt: str, options: dict | None = None):
+        if not self.is_running:
+            raise RuntimeError("Ollama is not running!")
+        
+        try:
+            payload = {
+                "model": model,
+                "prompt": prompt,
+                "stream": True
+            }
+            
+            if options:
+                payload["options"] = options
+            
+            response = requests.post(
+                self._get_url("/api/generate"),
+                json=payload,
+                stream=True,
+                timeout=120
+            )
+            response.raise_for_status()
+            
+            for line in response.iter_lines():
+                if line:
+                    try:
+                        chunk = json.loads(line.decode('utf-8'))
+                        yield chunk
+                        
+                        if chunk.get('done', False):
+                            break
+                            
+                    except json.JSONDecodeError:
+                        continue
+                        
+        except requests.RequestException as e:
+            yield {"error": str(e), "done": True}
+        except Exception as e:
+            yield {"error": str(e), "done": True}
