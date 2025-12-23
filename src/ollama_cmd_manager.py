@@ -1,8 +1,16 @@
 # src/ollama_cmd_manager.py
 
 from typing import Any
+from enum import Enum
 
 import subprocess
+import platform
+import re
+
+
+class PullMode(Enum):
+    BACKGROUND = "background"
+    FOREGROUND = "foreground"
 
 
 class OllamaCMDManager:
@@ -124,3 +132,161 @@ class OllamaCMDManager:
 
     def model_exists(self, model: str) -> bool:
         return model in self.list_model_names()
+
+    def pull_model(self, model, mode: PullMode = PullMode.FOREGROUND):
+        if not self.is_running:
+            raise RuntimeError("Ollama is not running!")
+        
+        try:
+            if mode == PullMode.BACKGROUND:
+                return self._pull_model_background(model)
+            else:
+                return self._pull_model_foreground(model)
+        except Exception as e:
+            return False
+
+    def _pull_model_foreground(self, model: str) -> bool:
+        try:
+            result = subprocess.run(
+                ["ollama", "pull", model],
+                capture_output=True,
+                text=True,
+                timeout=600
+            )
+            return result.returncode == 0
+        except Exception as e:
+            return False
+
+    def _pull_model_background(self, model: str) -> bool:
+        system = platform.system().lower()
+        command = f"ollama pull {model}"
+        
+        commands = {
+            "darwin": ["osascript", "-e", f'tell app "Terminal" to do script "{command}"'],
+            "windows": ["start", "cmd", "/k", command],
+            "linux": ["gnome-terminal", "--", "bash", "-c", command]
+        }
+        
+        cmd = commands.get(system)
+        if not cmd:
+            return False
+        
+        try:
+            subprocess.Popen(cmd, shell=(system == "windows"))
+            return True
+        except Exception as e:
+            return False
+
+    def pull_model_with_progress(self, model: str):
+        if not self.is_running:
+            raise RuntimeError("Ollama is not running!")
+        
+        try:
+            process = subprocess.Popen(
+                ["ollama", "pull", model],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1
+            )
+            
+            for line in iter(process.stdout.readline, ''):
+                line = line.strip()
+                if not line:
+                    continue
+                
+                # parse Ollama output
+                progress_info = self._parse_pull_progress(line)
+                if progress_info:
+                    yield progress_info
+            
+            process.wait()
+            
+            if process.returncode == 0:
+                yield {
+                    'status': 'completed',
+                    'total': 100,
+                    'completed': 100,
+                    'percent': 100.0,
+                }
+            else:
+                yield {
+                    'status': 'failed',
+                    'error': process.stderr.read(),
+                }
+                
+        except Exception as e:
+            yield {
+                'status': 'error',
+                'error': str(e),
+            }
+
+    def _parse_pull_progress(self, line: str) -> dict | None:
+        # extracting percentage from lines like "pulling xyz... 45%"
+        percent_match = re.search(r'(\d+)%', line)
+        
+        if 'pulling manifest' in line.lower():
+            return {
+                'status': 'pulling_manifest',
+                'message': line,
+                'percent': 0.0
+            }
+        elif 'verifying' in line.lower():
+            return {
+                'status': 'verifying',
+                'message': line,
+                'percent': 95.0
+            }
+        elif percent_match:
+            percent = float(percent_match.group(1))
+            
+            # extract size if present
+            size_match = re.search(r'([\d.]+\s*[KMGT]?B)', line)
+            size = size_match.group(1) if size_match else None
+            
+            return {
+                'status': 'downloading',
+                'message': line,
+                'percent': percent,
+                'size': size
+            }
+        elif 'success' in line.lower():
+            return {
+                'status': 'success',
+                'message': line,
+                'percent': 100.0
+            }
+        
+        return None
+
+    def delete_model(self, model: str, force: bool = False) -> bool:
+        if not self.is_running:
+            raise RuntimeError("Ollama is not running!")
+        
+        # check if model exists
+        if not force:
+            if not self.list_of_models:
+                self.list_model_names()
+            
+            if model not in self.list_of_models:
+                return False
+        
+        try:
+            result = subprocess.run(
+                ["ollama", "rm", model],
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=True
+            )
+            
+            # update internal model list
+            if model in self.list_of_models:
+                self.list_of_models.remove(model)
+            
+            return True
+            
+        except subprocess.CalledProcessError as e:
+            return False
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError) as e:
+            return False
