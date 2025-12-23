@@ -18,10 +18,15 @@ class OllamaCMDManager:
         self.is_installed: bool
         self.is_running: bool=True
         self.list_of_models: list[str] = []
+        self.list_of_running_models: list[str] = []
 
     def refresh_list_of_models(self):
         self.list_of_models = []
         self.list_of_models = self.list_model_names()
+
+    def refresh_list_of_running_models(self):
+        self.list_of_running_models = []
+        self.list_of_running_models = self._get_running_model_names()
 
 # Model-Management
     def list_model_names(self) -> list[str]:
@@ -290,3 +295,97 @@ class OllamaCMDManager:
             return False
         except (subprocess.TimeoutExpired, subprocess.SubprocessError) as e:
             return False
+
+    def get_running_models(self):
+        if not self.is_running:
+            raise RuntimeError("Ollama is not running!")
+        
+        try:
+            result = subprocess.run(
+                ["ollama", "ps"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=True
+            )
+            
+            lines = result.stdout.strip().split('\n')[1:]  # skip header
+            running_models = []
+            
+            for line in lines:
+                if line.strip():
+                    parts = line.split()
+                    if len(parts) >= 4:
+                        running_models.append({
+                            'name': parts[0],
+                            'size': ' '.join(parts[1:3]),
+                            'processor': parts[3],
+                            'until': ' '.join(parts[4:]) if len(parts) > 4 else ''
+                        })
+            
+            return running_models
+            
+        except subprocess.CalledProcessError as e:
+            return []
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError) as e:
+            return []
+
+    def _get_running_model_names(self) -> list[str]:
+        running = self.get_running_models()
+        return [model['name'] for model in running]
+
+    def start_running_model(self, model: str) -> bool:
+        if not self.is_running:
+            raise RuntimeError("Ollama is not running!")
+        
+        try:
+            # send empty prompt to load model into memory
+            result = subprocess.run(
+                ["ollama", "run", model, ""],
+                capture_output=True,
+                text=True,
+                timeout=60,
+                check=True
+            )
+            
+            return True
+            
+        except subprocess.CalledProcessError as e:
+            return False
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError) as e:
+            return False
+
+    def stop_running_model(self, model: str, force: bool = False) -> bool:
+        if not self.is_running:
+            raise RuntimeError("Ollama is not running!")
+        
+        # check if model is actually running
+        if not force:
+            running_models = self._get_running_model_names()
+            if model not in running_models:
+                return False
+        
+        try:
+            result = subprocess.run(
+                ["ollama", "stop", model],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                check=True
+            )
+            
+            return True
+            
+        except subprocess.CalledProcessError as e:
+            return False
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError) as e:
+            return False
+
+    def stop_all_running_models(self) -> dict[str, bool]:
+        running_models = self._get_running_model_names()
+        results = {}
+        
+        for model in running_models:
+            results[model] = self.stop_running_model(model)
+        
+        return results
