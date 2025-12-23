@@ -389,3 +389,54 @@ class OllamaCMDManager:
             results[model] = self.stop_running_model(model)
         
         return results
+
+# AI-Communication
+    def generate(self, model: str, prompt: str) -> str | None:
+        if not self.is_running:
+            raise RuntimeError("Ollama is not running!")
+        
+        try:
+            result = subprocess.run(
+                ["ollama", "run", model, prompt],
+                capture_output=True,
+                text=True,
+                timeout=120,
+                check=True
+            )
+            
+            response = result.stdout.strip()
+            return response
+            
+        except subprocess.CalledProcessError as e:
+            return None
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError) as e:
+            return None
+
+    def generate_stream(self, model: str, prompt: str):
+        if not self.is_running:
+            raise RuntimeError("Ollama is not running!")
+        
+        try:
+            process = subprocess.Popen(
+                ["ollama", "run", model, prompt],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1
+            )
+            
+            # Stream output line by line
+            for line in iter(process.stdout.readline, ''):
+                if line:
+                    yield line.rstrip('\n')
+            
+            process.wait()
+            
+            if process.returncode != 0:
+                error = process.stderr.read()
+                yield f"[Error: {error}]"
+            else:
+                print()
+                
+        except Exception as e:
+            yield f"[Error: {e}]"
