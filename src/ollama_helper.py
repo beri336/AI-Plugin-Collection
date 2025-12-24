@@ -1,5 +1,7 @@
 # src/ollama_helper.py
 
+from typing import List
+
 import urllib.request
 import subprocess
 import tempfile
@@ -42,8 +44,8 @@ class OllamaHelper:
             )
             if result.returncode == 0:
                 return True
-        except (subprocess.TimeoutExpired, subprocess.SubprocessError) as e:
-            print()
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError, FileNotFoundError) as e:
+            pass
         return False
 
     def _try_curl_install(self) -> bool:
@@ -72,8 +74,8 @@ class OllamaHelper:
             if install_result.returncode == 0:
                 return True
             
-        except (subprocess.TimeoutExpired, subprocess.SubprocessError) as e:
-            print()
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError, FileNotFoundError) as e:
+            pass
         return False
 
     def _try_winget_install(self) -> bool:
@@ -88,8 +90,8 @@ class OllamaHelper:
             )
             if result.returncode == 0:
                 return True
-        except (subprocess.TimeoutExpired, subprocess.SubprocessError) as e:
-            print()
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError, FileNotFoundError) as e:
+            pass
         return False
 
     def _try_choco_install(self) -> bool:
@@ -103,8 +105,8 @@ class OllamaHelper:
             )
             if result.returncode == 0:
                 return True
-        except (subprocess.TimeoutExpired, subprocess.SubprocessError) as e:
-            print()
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError, FileNotFoundError) as e:
+            pass
         return False
 
     def _try_direct_download_install_windows_only(self) -> bool:
@@ -125,8 +127,8 @@ class OllamaHelper:
             if result.returncode == 0:
                 return True
             
-        except Exception as e:
-            print()
+        except (urllib.error.URLError, subprocess.SubprocessError, OSError) as e:
+            pass
         finally:
             # cleanup installer file
             if installer_path and os.path.exists(installer_path):
@@ -224,7 +226,7 @@ Windows:
         AVG_CHARS_PER_TOKEN = 4
         return max(1, len(text.strip()) // AVG_CHARS_PER_TOKEN)
 
-    def search_models(self, query: str, models: list[str]) -> list[str]:
+    def search_models(self, query: str, models: List[str]) -> List[str]:
         if not query:
             return []
         
@@ -235,5 +237,5 @@ Windows:
             query_lower = query.lower()
             matching = [m for m in models if query_lower in m.lower()]
             return matching
-        except Exception as e:
+        except (AttributeError, TypeError) as e:
             return []

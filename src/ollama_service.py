@@ -1,6 +1,6 @@
 # src/ollama_service.py
 
-from typing import Optional
+from typing import Optional, Dict, Any
 from pathlib import Path
 
 import subprocess
@@ -62,7 +62,7 @@ class OllamaService:
     def _is_running(self) -> bool:
         return self.is_process_running() and self.is_api_reachable()
 
-    def get_status(self) -> dict:
+    def get_status(self) -> Dict[str, Any]:
         return {
             "os": self.get_os_name(),
             "installed": self.is_installed(),
@@ -91,7 +91,7 @@ class OllamaService:
             
             return None
             
-        except (subprocess.TimeoutExpired, subprocess.SubprocessError):
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError) as e:
             return None
 
     def start(self, timeout: int = 10) -> bool:
@@ -124,7 +124,7 @@ class OllamaService:
             
             return False
             
-        except (OSError, subprocess.SubprocessError) as e:
+        except (OSError, subprocess.SubprocessError, FileNotFoundError) as e:
             return False
 
     def stop(self) -> bool:
@@ -178,7 +178,7 @@ class OllamaService:
         return cls.logger
 
     @classmethod
-    def get_logger(cls) -> logging.Logger | None:
+    def get_logger(cls) -> Optional[logging.Logger]:
         if cls.logger is None:
             cls.setup_logger()
         return cls.logger
