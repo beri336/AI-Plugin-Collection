@@ -5,27 +5,45 @@ from ollama_api_manager import OllamaAPIManager
 from ollama_cmd_manager import OllamaCMDManager
 from ollama_service import OllamaService
 from ollama_helper import OllamaHelper
+from ollama_config import OllamaConfig
 
+from typing import Optional, Dict, Any
 from enum import Enum
 
 import logging
 
 
 class OllamaBackend(Enum):
+    """ Backend type for Ollama operations """
     API = "api"
     CMD = "cmd"
 
 
 class OllamaManager():
+    """ Main unified manager for Ollama operations """
+    
     def __init__(
         self,
         backend: OllamaBackend = OllamaBackend.API,
         host: str = "localhost",
-        port: int = 11434
+        port: int = 11434,
+        config: Optional[OllamaConfig] = None
     ) -> None:
+        """Initialize the Ollama Manager.
+        
+        Args:
+            backend: Backend type (API or CMD)
+            host: Hostname for API backend
+            port: Port for API backend
+            config: Optional OllamaConfig instance
+        """
+        
+        self.config = config if config else OllamaConfig(host=host, port=port)
+        self.config.ensure_dirs()
+        
         self.service = OllamaService()
         self.cmd = OllamaCMDManager()
-        self.api = OllamaAPIManager()
+        self.api = OllamaAPIManager(config=self.config)
         self.helper = OllamaHelper()
         self.logger = None
         
@@ -37,12 +55,19 @@ class OllamaManager():
         
         self.backend_type = backend
 
-    def get_backend_type(self):
-        print("Set backend type: '{self.backend_type}'")
+    def get_backend_type(self) -> None:
+        """ Display current backend type """
+        print(f"Current backend type: '{self.backend_type.value}'")
 
-    def switch_backend(self, mode: OllamaBackend):
+    def switch_backend(self, mode: OllamaBackend) -> None:
+        """ Switch between API and CMD backend """
+        if mode == OllamaBackend.API:
+            self._backend = self.api
+        else:
+            self._backend = self.cmd
+        
         self.backend_type = mode
-        print(f"New backend type: '{mode}'")
+        print(f"Switched to backend: '{mode.value}'")
 
 # OllamaCMDManager & OllamaAPIManager
     def get_list_of_models(self) -> None:
@@ -63,7 +88,7 @@ class OllamaManager():
                 print(f"    - Size: '{i["size"]}'")
                 print(f"    - Last modified: '{i["modified"]}'")
 
-    def get_information_for_model(self, model: str):
+    def get_information_for_model(self, model: str) -> None:
         model_exists = self._backend.get_model_info(model)
         if not model_exists:
             print(f"'{model}' does not exist.")
@@ -118,7 +143,7 @@ class OllamaManager():
             else:
                 print(f"Error: While downloading Model '{model}' (via {mode}).")
 
-    def load_new_model_with_progress(self, model: str):
+    def load_new_model_with_progress(self, model: str) -> bool:
         print(f"Starting download of '{model}'...")
         
         try:
@@ -170,7 +195,7 @@ class OllamaManager():
         else:
             print(f"Model '{model}' is not installed.")
 
-    def refresh_list_of_models(self):
+    def refresh_list_of_models(self) -> None:
         self._backend.refresh_list_of_models()
         print("Refreshed the list of models.")
 
@@ -197,7 +222,7 @@ class OllamaManager():
         else:
             print("No models are currently active.")
 
-    def start_running_model(self, model: str):
+    def start_running_model(self, model: str) -> None:
         start = self._backend.start_running_model(model)
         
         if start:
@@ -205,7 +230,7 @@ class OllamaManager():
         else:
             print(f"Error: While starting Model '{model}' and is not available.")
 
-    def stop_running_model(self, model: str, force: bool = False):
+    def stop_running_model(self, model: str, force: bool = False) -> None:
         status = self._backend.stop_running_model(model, force)
         
         if status:
@@ -213,11 +238,11 @@ class OllamaManager():
         else:
             print(f"Error: While stopping Model '{model}'.")
 
-    def refresh_list_of_all_running_models(self):
+    def refresh_list_of_all_running_models(self) -> None:
         self._backend.refresh_list_of_running_models()
         print("Refreshed the list of all running models.")
 
-    def generate_response(self, model: str, prompt: str, options: dict | None = None):
+    def generate_response(self, model: str, prompt: str, options: Optional[Dict[str, Any]] = None) -> None:
         if not model:
             print("No model specified.")
             return
@@ -236,7 +261,7 @@ class OllamaManager():
             print("\n=== AI Response to given prompt ===")
             print(f"{response}")
 
-    def generate_streamed_response(self, model: str, prompt: str, options: dict | None = None):
+    def generate_streamed_response(self, model: str, prompt: str, options: Optional[Dict[str, Any]] = None) -> None:
         if not model:
             print("No model specified.")
             return
@@ -256,7 +281,7 @@ class OllamaManager():
             print(f"{response}")
 
 # OllamaAPIManager only
-    def check_api_connection(self):
+    def check_api_connection(self) -> None:
         con = self.api._check_connection()
 
         if con:
@@ -264,34 +289,34 @@ class OllamaManager():
         else:
             print("API seems to be offline.")
 
-    def get_api_url(self, endpoint: str = ''):
+    def get_api_url(self, endpoint: str = '') -> None:
         print(f"API URL: '{self.api._get_url(endpoint)}'")
 
-    def get_api_host(self):
+    def get_api_host(self) -> None:
         print(f"API Host: '{self.api.get_host()}'")
 
-    def set_api_host(self, new_host: str):
+    def set_api_host(self, new_host: str) -> None:
         self.api.set_host(new_host)
         print(f"New API Host set to: '{new_host}'")
 
-    def get_api_port(self):
+    def get_api_port(self) -> None:
         print(f"API Port: '{self.api.get_port()}'")
 
-    def set_api_port(self, new_port: int):
+    def set_api_port(self, new_port: int) -> None:
         self.api.set_port(new_port)
         print(f"New API Port set to: '{new_port}'")
 
-    def get_api_base_url(self):
+    def get_api_base_url(self) -> None:
         print(f"API Base URL: '{self.api.get_base_url()}'")
 
 # OllamaService
-    def get_version(self):
+    def get_version(self) -> None:
         print(f"Current installed Ollama Version: '{self.service.get_version()}'.")
 
-    def get_operating_system(self):
+    def get_operating_system(self) -> None:
         print(f"Current Operating System: '{self.service.get_os_name()}'.")
 
-    def get_is_process_running(self):
+    def get_is_process_running(self) -> None:
         status = self.service.is_process_running()
         
         if status:
@@ -299,7 +324,7 @@ class OllamaManager():
         else:
             print("Ollama is currently not active.")
 
-    def get_api_status(self):
+    def get_api_status(self) -> None:
         status = self.service.is_api_reachable()
         
         if status:
@@ -307,7 +332,7 @@ class OllamaManager():
         else:
             print("Ollama API seems to be offline.")
 
-    def get_is_installed(self):
+    def get_is_installed(self) -> None:
         status = self.service.is_installed()
         
         if status:
@@ -315,10 +340,10 @@ class OllamaManager():
         else:
             print("Ollama is not installed or in PATH.")
 
-    def get_installation_path(self):
+    def get_installation_path(self) -> None:
         print(f"Ollama installed Path: '{self.service.get_installation_path()}'")
 
-    def start_ollama(self):
+    def start_ollama(self) -> None:
         if self.service.is_process_running():
             print("Ollama is already running.")
             return
@@ -330,7 +355,7 @@ class OllamaManager():
         else:
             print("Error: Ollama could not be started.")
 
-    def stop_ollama(self):
+    def stop_ollama(self) -> None:
         stop = self.service.stop()
         
         if stop:
@@ -338,7 +363,7 @@ class OllamaManager():
         else:
             print("Error: Ollama could not be stopped.")
 
-    def health_check(self):
+    def health_check(self) -> None:
         check = self.service.get_status()
         
         print("\n# Health Check #")
@@ -350,11 +375,11 @@ class OllamaManager():
         print(f"Ollama Is Fully Operational: '{check["fully_operational"]}'")
         print(f"Ollama Version: '{check["version"]}'\n")
 
-    def setup_logging_default(self):
+    def setup_logging_default(self) -> None:
         self.logger = self.service.setup_logger()
         print("Logging configured: INFO level, console output")
 
-    def setup_logging_debug(self, log_file: str = "logs/ollama_debug.log"):
+    def setup_logging_debug(self, log_file: str = "logs/ollama_debug.log") -> None:
         self.logger = self.service.setup_logger(
             level=logging.DEBUG,
             log_file=log_file,
@@ -362,7 +387,7 @@ class OllamaManager():
         )
         print(f"Debug logging configured: DEBUG level, console + file '{log_file}'")
 
-    def setup_logging_file_only(self, log_file: str = "logs/ollama.log", level: int = logging.INFO):
+    def setup_logging_file_only(self, log_file: str = "logs/ollama.log", level: int = logging.INFO) -> None:
         self.logger = self.service.setup_logger(
             level=level,
             log_file=log_file,
@@ -370,14 +395,14 @@ class OllamaManager():
         )
         print(f"File logging configured: {logging.getLevelName(level)} level, file '{log_file}'")
 
-    def setup_logging_quiet(self):
+    def setup_logging_quiet(self) -> None:
         self.logger = self.service.setup_logger(
             level=logging.WARNING,
             console=True
         )
         print("Quiet logging configured: WARNING level, console output")
 
-    def setup_logging_verbose(self, log_file: str = "logs/ollama_verbose.log"):
+    def setup_logging_verbose(self, log_file: str = "logs/ollama_verbose.log") -> None:
         self.logger = self.service.setup_logger(
             level=logging.DEBUG,
             log_file=log_file,
@@ -390,7 +415,7 @@ class OllamaManager():
         level: int = logging.INFO,
         log_file: str | None = None,
         console: bool = True
-    ):
+    ) -> None:
         self.logger = self.service.setup_logger(
             level=level,
             log_file=log_file,
@@ -404,13 +429,13 @@ class OllamaManager():
             output.append(f"file '{log_file}'")
         print(f"Custom logging configured: {level_name} level, {' + '.join(output)}")
 
-    def disable_logging(self):
+    def disable_logging(self) -> None:
         if self.logger:
             self.logger.handlers.clear()
             self.logger.setLevel(logging.CRITICAL + 1)
         print("Logging disabled")
 
-    def get_logging_status(self):
+    def get_logging_status(self) -> None:
         if self.logger is None:
             print("Logging not configured")
             return
@@ -441,7 +466,7 @@ class OllamaManager():
         return self.logger
 
 # OllamaHelper
-    def check_if_homebrew_is_installed(self):
+    def check_if_homebrew_is_installed(self) -> None:
         installed = self.helper._is_homebrew_installed()
         
         if installed:
@@ -449,7 +474,7 @@ class OllamaManager():
         else:
             print("Homebrew not found.")
 
-    def check_if_winget_is_installed(self):
+    def check_if_winget_is_installed(self) -> None:
         installed = self.helper._is_winget_installed()
         
         if installed:
@@ -457,7 +482,7 @@ class OllamaManager():
         else:
             print("Winget not found.")
 
-    def check_if_chocolatey_is_installed(self):
+    def check_if_chocolatey_is_installed(self) -> None:
         installed = self.helper._is_chocolatey_installed()
         
         if installed:
@@ -465,7 +490,7 @@ class OllamaManager():
         else:
             print("Chocolatey not found.")
 
-    def try_installing_homebrew(self):
+    def try_installing_homebrew(self) -> None:
         installed = self.helper._try_brew_install()
         
         if installed:
@@ -473,7 +498,7 @@ class OllamaManager():
         else:
             print("Error: While installing Homebrew.")
 
-    def try_installing_curl(self):
+    def try_installing_curl(self) -> None:
         installed = self.helper._try_curl_install()
         
         if installed:
@@ -481,7 +506,7 @@ class OllamaManager():
         else:
             print("Error: While installing Curl.")
 
-    def try_installing_winget(self):
+    def try_installing_winget(self) -> None:
         installed = self.helper._try_winget_install()
         
         if installed:
@@ -489,7 +514,7 @@ class OllamaManager():
         else:
             print("Error: While installing Winget.")
 
-    def try_installing_choco(self):
+    def try_installing_choco(self) -> None:
         installed = self.helper._try_choco_install()
         
         if installed:
@@ -497,7 +522,7 @@ class OllamaManager():
         else:
             print("Error: While installing Chocolatey.")
 
-    def try_installing_direct_on_windows_only(self):
+    def try_installing_direct_on_windows_only(self) -> None:
         installed = self.helper._try_direct_download_install_windows_only()
         
         if installed:
@@ -505,10 +530,10 @@ class OllamaManager():
         else:
             print("Error: While installing Ollama.")
 
-    def show_manual_installation_instruction(self):
+    def show_manual_installation_instruction(self) -> None:
         self.helper._show_manual_install_instructions()
 
-    def install_on_macos(self):
+    def install_on_macos(self) -> None:
         installed = self.helper._install_macos()
         
         if installed:
@@ -516,7 +541,7 @@ class OllamaManager():
         else:
             print("Error: While installing Ollama on MacOS.")
 
-    def install_on_linux(self):
+    def install_on_linux(self) -> None:
         installed = self.helper._install_linux()
         
         if installed:
@@ -524,7 +549,7 @@ class OllamaManager():
         else:
             print("Error: While installing Ollama on Linux.")
 
-    def install_on_windows(self):
+    def install_on_windows(self) -> None:
         installed = self.helper._install_windows()
         
         if installed:
@@ -532,7 +557,7 @@ class OllamaManager():
         else:
             print("Error: While installing Ollama on Windows.")
 
-    def validate_name_is_correct_for_model(self, model: str):
+    def validate_name_is_correct_for_model(self, model: str) -> None:
         valid = self.helper.validate_model_name(model)
         
         if valid:
@@ -540,11 +565,11 @@ class OllamaManager():
         else:
             print(f"Model '{model}' is not a valid name.")
 
-    def estimate_prompt_tokenizer(self, text: str):
+    def estimate_prompt_tokenizer(self, text: str) -> None:
         counter = self.helper.estimate_tokens(text)
         print(f"Estimated Token: '{counter}'")
 
-    def search_models(self, model: str, models: list[str]):
+    def search_models(self, model: str, models: list[str]) -> None:
         status = self.helper.search_models(model, models)
         
         if status:
