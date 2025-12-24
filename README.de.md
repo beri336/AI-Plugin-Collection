@@ -1,5 +1,7 @@
 # AI-Plugin-Collection [Deutsch]
 
+![Banner (created by ChatGPT)](<pictures/Banner (created by ChatGPT).png>)
+
 Ein umfassendes Python-Plugin zur Verwaltung und Steuerung von Ollama über API und CLI. Dieses Plugin bietet eine einheitliche Schnittstelle für Model-Management, Service-Kontrolle und AI-Generierung.
 
 ## Language / Sprache
