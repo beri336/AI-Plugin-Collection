@@ -177,3 +177,39 @@ manager.estimate_prompt_tokenizer("Tokenizer tokenizer tokenssss 123")
 
 # Search if model is in installed model list
 manager.search_models("llama3.2:1b", ["list of all models here", "llama3.2:1b"])
+
+# === Cache Manager
+manager = OllamaManager(enable_cache=True)
+
+# Generate response (will be cached)
+manager.generate_response(
+    model="llama3.2:3b",
+    prompt="What is Python?",
+    use_cache=True
+)
+
+# Second call - will use cache (instant!)
+manager.generate_response(
+    model="llama3.2:3b",
+    prompt="What is Python?",  # Same prompt = cache hit
+    use_cache=True
+)
+
+# View cache statistics
+manager.get_cache_stats()
+
+# Clear expired entries
+manager.clear_expired_cache()
+
+# Export cache info
+manager.export_cache_info("my_cache.json")
+
+# Clear all cache
+manager.clear_cache()
+
+# Disable cache for specific request
+manager.generate_response(
+    model="llama3.2:3b",
+    prompt="Tell me something new",
+    use_cache=False  # Force fresh generation
+)

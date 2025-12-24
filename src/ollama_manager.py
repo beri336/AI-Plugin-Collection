@@ -6,6 +6,7 @@ from ollama_cmd_manager import OllamaCMDManager
 from ollama_service import OllamaService
 from ollama_helper import OllamaHelper
 from ollama_config import OllamaConfig
+from ollama_cache import OllamaCache
 
 from typing import Optional, Dict, Any
 from enum import Enum
@@ -27,7 +28,8 @@ class OllamaManager():
         backend: OllamaBackend = OllamaBackend.API,
         host: str = "localhost",
         port: int = 11434,
-        config: Optional[OllamaConfig] = None
+        config: Optional[OllamaConfig] = None,
+        enable_cache: bool=True
     ) -> None:
         """Initialize the Ollama Manager.
         
@@ -40,6 +42,14 @@ class OllamaManager():
         
         self.config = config if config else OllamaConfig(host=host, port=port)
         self.config.ensure_dirs()
+        
+        self.cache: Optional[OllamaCache] = None
+        if enable_cache:
+            self.cache = OllamaCache(
+                cache_dir=self.config.cache_dir,
+                max_size_mb=100,
+                default_ttl_seconds=3600
+            )
         
         self.service = OllamaService()
         self.cmd = OllamaCMDManager()
@@ -242,7 +252,14 @@ class OllamaManager():
         self._backend.refresh_list_of_running_models()
         print("Refreshed the list of all running models.")
 
-    def generate_response(self, model: str, prompt: str, options: Optional[Dict[str, Any]] = None) -> None:
+    def generate_response(
+        self, 
+        model: str, 
+        prompt: str, 
+        options: Optional[Dict[str, Any]] = None,
+        use_cache: bool=True
+    ) -> None:
+        """ Generate and print AI response with optional caching """
         if not model:
             print("No model specified.")
             return
@@ -250,16 +267,26 @@ class OllamaManager():
             print("No prompt specified.")
             return
         
+        # check cache first
+        if use_cache and self.cache:
+            cached_response = self.cache.get_cached_response(model, prompt)
+            if cached_response:
+                print("\n=== AI Response (from cache) ===")
+                print(cached_response)
+                return
+        
+        # generate new response
         if self.backend_type == OllamaBackend.CMD:
             response = self.cmd.generate(model, prompt)
-            
-            print("\n=== AI Response to given prompt ===")
-            print(f"{response}")
         else:
-            response = self.api.generate(model, prompt, options)
-            
-            print("\n=== AI Response to given prompt ===")
-            print(f"{response}")
+            result = self.api.generate(model, prompt, options)
+            response = result.get('response', '') if result else None
+        
+        if response:
+            if use_cache and self.cache:
+                self.cache.cache_response(model, prompt, response)
+                print("\n=== AI Response to given prompt ===")
+                print(f"{response}")
 
     def generate_streamed_response(self, model: str, prompt: str, options: Optional[Dict[str, Any]] = None) -> None:
         if not model:
@@ -576,3 +603,51 @@ class OllamaManager():
             print(f"Model '{model}' is installed.")
         else:
             print(f"Model '{model}' is not installed.")
+
+# Cache Management Methods
+    def get_cache_stats(self) -> None:
+        """ Display cache statistics """
+        if not self.cache:
+            print("Cache is disabled.")
+            return
+        
+        stats = self.cache.get_stats()
+        print("\n=== Cache Statistics ===")
+        print(f"Total entries: {stats['total_entries']}")
+        print(f"Total size: {stats['total_size_mb']:.2f} MB / {stats['max_size_mb']:.0f} MB")
+        print(f"Usage: {stats['usage_percent']:.1f}%")
+        print(f"Expired entries: {stats['expired_entries']}")
+        
+        if stats['top_entries']:
+            print("\nMost accessed entries:")
+            for entry in stats['top_entries']:
+                print(f"  - {entry['key']}: {entry['hits']} hits")
+        print()
+
+    def clear_cache(self) -> None:
+        """ Clear all cache entries """
+        if not self.cache:
+            print("Cache is disabled.")
+            return
+        
+        count = self.cache.clear()
+        print(f"Cleared {count} cache entries.")
+
+    def clear_expired_cache(self) -> None:
+        """ Clear expired cache entries """
+        if not self.cache:
+            print("Cache is disabled.")
+            return
+        
+        count = self.cache.clear_expired()
+        print(f"Cleared {count} expired cache entries.")
+
+    def export_cache_info(self, filepath: str = "cache_info.json") -> None:
+        """ Export cache information to JSON file """
+        if not self.cache:
+            print("Cache is disabled.")
+            return
+        
+        from pathlib import Path
+        self.cache.export_to_json(Path(filepath))
+        print(f"Cache info exported to: {filepath}")
