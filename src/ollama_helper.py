@@ -201,3 +201,39 @@ Windows:
         
         self._show_manual_install_instructions()
         return False
+
+# Utility-Methods
+    def validate_model_name(self, model: str) -> bool:
+        if not model or not isinstance(model, str):
+            return False
+        
+        if not model.strip():
+            return False
+        
+        # check for invalid filesystem characters
+        invalid_chars = {'<', '>', '"', '|', '?', '*'}
+        if any(char in model for char in invalid_chars):
+            return False
+        
+        return True
+
+    def estimate_tokens(self, text: str) -> int:
+        if not text or not isinstance(text, str):
+            return 0
+        
+        AVG_CHARS_PER_TOKEN = 4
+        return max(1, len(text.strip()) // AVG_CHARS_PER_TOKEN)
+
+    def search_models(self, query: str, models: list[str]) -> list[str]:
+        if not query:
+            return []
+        
+        if not models:
+            return []
+        
+        try:
+            query_lower = query.lower()
+            matching = [m for m in models if query_lower in m.lower()]
+            return matching
+        except Exception as e:
+            return []
