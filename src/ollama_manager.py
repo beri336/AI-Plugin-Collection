@@ -1,5 +1,6 @@
 # src/ollama_manager.py
 
+from conversation_manager import ConversationManager, Message, Conversation
 from ollama_cmd_manager import OllamaCMDManager, PullMode
 from ollama_api_manager import OllamaAPIManager
 from ollama_cmd_manager import OllamaCMDManager
@@ -651,3 +652,143 @@ class OllamaManager():
         from pathlib import Path
         self.cache.export_to_json(Path(filepath))
         print(f"Cache info exported to: {filepath}")
+
+# Conversation Management
+    def create_conversation(
+        self,
+        model: str,
+        system_message: Optional[str] = None,
+        max_history: int = 20
+    ) -> ConversationManager:
+        """Create a new conversation manager.
+        
+        Args:
+            model: Model to use
+            system_message: Optional system message
+            max_history: Maximum message history
+            
+        Returns:
+            ConversationManager instance
+        """
+        return ConversationManager(
+            model=model,
+            max_history=max_history,
+            system_message=system_message
+        )
+
+    def chat_with_context(
+        self,
+        conversation: ConversationManager,
+        user_message: str,
+        stream: bool = False
+    ) -> str:
+        """Send message in conversation context.
+        
+        Args:
+            conversation: ConversationManager instance
+            user_message: User's message
+            stream: Whether to stream response
+            
+        Returns:
+            Assistant's response
+        """
+        # add user message to conversation
+        conversation.add_user_message(user_message)
+        
+        # build prompt with context
+        prompt = conversation.build_prompt(user_message)
+        
+        # generate response
+        if stream:
+            print("Assistant: ", end='', flush=True)
+            response_parts = []
+            
+            if self.backend_type == OllamaBackend.API:
+                for chunk in self.api.generate_stream(conversation.conversation.model, prompt):
+                    if 'response' in chunk:
+                        text = chunk['response']
+                        print(text, end='', flush=True)
+                        response_parts.append(text)
+            else:
+                for text in self.cmd.generate_stream(conversation.conversation.model, prompt):
+                    print(text, end='', flush=True)
+                    response_parts.append(text)
+            
+            print()
+            response = ''.join(response_parts)
+        else:
+            if self.backend_type == OllamaBackend.API:
+                result = self.api.generate(conversation.conversation.model, prompt)
+                response = result.get('response', '') if result else ''
+            else:
+                response = self.cmd.generate(conversation.conversation.model, prompt) or ''
+        
+        # add assistant response to conversation
+        conversation.add_assistant_message(response)
+        
+        return response
+
+    def show_conversation_info(self, conversation: ConversationManager) -> None:
+        """Display conversation information.
+        
+        Args:
+            conversation: ConversationManager instance
+        """
+        info = conversation.get_conversation_info()
+        
+        print("\n=== Conversation Info ===")
+        print(f"Title: {info['title']}")
+        print(f"Model: {info['model']}")
+        print(f"Total messages: {info['message_count']}")
+        print(f"  - User: {info['user_messages']}")
+        print(f"  - Assistant: {info['assistant_messages']}")
+        print(f"  - System: {info['system_messages']}")
+        print(f"Estimated tokens: {info['estimated_tokens']}")
+        print(f"Created: {info['created_at']}")
+        print()
+
+    def save_conversation(
+        self,
+        conversation: ConversationManager,
+        filepath: str
+    ) -> None:
+        """Save conversation to file.
+        
+        Args:
+            conversation: ConversationManager instance
+            filepath: Path to save file
+        """
+        from pathlib import Path
+        conversation.save_to_file(Path(filepath))
+        print(f"Conversation saved to: {filepath}")
+
+    def load_conversation(self, filepath: str, model: str) -> ConversationManager:
+        """Load conversation from file.
+        
+        Args:
+            filepath: Path to load file
+            model: Model to use for loaded conversation
+            
+        Returns:
+            ConversationManager instance
+        """
+        from pathlib import Path
+        conversation = ConversationManager(model=model)
+        conversation.load_from_file(Path(filepath))
+        print(f"Conversation loaded from: {filepath}")
+        return conversation
+
+    def export_conversation_markdown(
+        self,
+        conversation: ConversationManager,
+        filepath: str
+    ) -> None:
+        """Export conversation to Markdown.
+        
+        Args:
+            conversation: ConversationManager instance
+            filepath: Path to save file
+        """
+        from pathlib import Path
+        conversation.export_to_markdown(Path(filepath))
+        print(f"Conversation exported to Markdown: {filepath}")

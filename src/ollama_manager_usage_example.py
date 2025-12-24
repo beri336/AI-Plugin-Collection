@@ -179,37 +179,67 @@ manager.estimate_prompt_tokenizer("Tokenizer tokenizer tokenssss 123")
 manager.search_models("llama3.2:1b", ["list of all models here", "llama3.2:1b"])
 
 # === Cache Manager
-manager = OllamaManager(enable_cache=True)
+# manager = OllamaManager(enable_cache=True)
 
 # Generate response (will be cached)
-manager.generate_response(
-    model="llama3.2:3b",
-    prompt="What is Python?",
-    use_cache=True
-)
+# manager.generate_response(
+#     model="llama3.2:3b",
+#     prompt="What is Python?",
+#     use_cache=True
+# )
 
 # Second call - will use cache (instant!)
-manager.generate_response(
-    model="llama3.2:3b",
-    prompt="What is Python?",  # Same prompt = cache hit
-    use_cache=True
-)
+# manager.generate_response(
+#     model="llama3.2:3b",
+#     prompt="What is Python?",  # Same prompt = cache hit
+#     use_cache=True
+# )
 
 # View cache statistics
-manager.get_cache_stats()
+# manager.get_cache_stats()
 
 # Clear expired entries
-manager.clear_expired_cache()
+# manager.clear_expired_cache()
 
 # Export cache info
-manager.export_cache_info("my_cache.json")
+# manager.export_cache_info("my_cache.json")
 
 # Clear all cache
-manager.clear_cache()
+# manager.clear_cache()
 
 # Disable cache for specific request
-manager.generate_response(
+# manager.generate_response(
+#     model="llama3.2:3b",
+#     prompt="Tell me something new",
+#     use_cache=False  # Force fresh generation
+# )
+
+
+# Example: Interactive Chat Loop
+manager = OllamaManager()
+conversation = manager.create_conversation(
     model="llama3.2:3b",
-    prompt="Tell me something new",
-    use_cache=False  # Force fresh generation
+    system_message="You are a helpful assistant.",
+    max_history=10
 )
+print("Chat started! Type 'quit' to exit, 'info' for stats.\n")
+
+while True:
+    user_input = input("You: ").strip()
+    
+    if user_input.lower() == 'quit':
+        # Save before quitting
+        manager.save_conversation(conversation, "last_conversation.json")
+        print("Conversation saved. Goodbye!")
+        break
+    
+    if user_input.lower() == 'info':
+        manager.show_conversation_info(conversation)
+        continue
+    
+    if not user_input:
+        continue
+    
+    # Chat with streaming
+    manager.chat_with_context(conversation, user_input, stream=True)
+    print()
