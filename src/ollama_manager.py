@@ -8,6 +8,8 @@ from ollama_helper import OllamaHelper
 
 from enum import Enum
 
+import logging
+
 
 class OllamaBackend(Enum):
     API = "api"
@@ -252,3 +254,271 @@ class OllamaManager():
             
             print("\n=== AI Response to given prompt ===")
             print(f"{response}")
+
+# OllamaService
+    def get_version(self):
+        print(f"Current installed Ollama Version: '{self.service.get_version()}'.")
+
+    def get_operating_system(self):
+        print(f"Current Operating System: '{self.service.get_os_name()}'.")
+
+    def get_is_process_running(self):
+        status = self.service.is_process_running()
+        
+        if status:
+            print("Ollama is currently active.")
+        else:
+            print("Ollama is currently not active.")
+
+    def get_api_status(self):
+        status = self.service.is_api_reachable()
+        
+        if status:
+            print("Ollama API is reachable.")
+        else:
+            print("Ollama API seems to be offline.")
+
+    def get_is_installed(self):
+        status = self.service.is_installed()
+        
+        if status:
+            print("Ollama is installed.")
+        else:
+            print("Ollama is not installed or in PATH.")
+
+    def get_installation_path(self):
+        print(f"Ollama installed Path: '{self.service.get_installation_path()}'")
+
+    def start_ollama(self):
+        if self.service.is_process_running():
+            print("Ollama is already running.")
+            return
+        
+        process = self.service.start()
+        
+        if process:
+            print("Success: Ollama started successfully.")
+        else:
+            print("Error: Ollama could not be started.")
+
+    def stop_ollama(self):
+        stop = self.service.stop()
+        
+        if stop:
+            print("Success: Ollama stopped successfully.")
+        else:
+            print("Error: Ollama could not be stopped.")
+
+    def health_check(self):
+        check = self.service.get_status()
+        
+        print("\n# Health Check #")
+        print(f"Operating System: '{check["os"]}'")
+        print(f"Ollama Installed: '{check["installed"]}'")
+        print(f"Ollama Installation Path: '{check["installation_path"]}'")
+        print(f"Ollama Process Is Running: '{check["process_running"]}'")
+        print(f"Ollama API Is Reachable: '{check["api_reachable"]}'")
+        print(f"Ollama Is Fully Operational: '{check["fully_operational"]}'")
+        print(f"Ollama Version: '{check["version"]}'\n")
+
+    def setup_logging_default(self):
+        self.logger = self.service.setup_logger()
+        print("Logging configured: INFO level, console output")
+
+    def setup_logging_debug(self, log_file: str = "logs/ollama_debug.log"):
+        self.logger = self.service.setup_logger(
+            level=logging.DEBUG,
+            log_file=log_file,
+            console=True
+        )
+        print(f"Debug logging configured: DEBUG level, console + file '{log_file}'")
+
+    def setup_logging_file_only(self, log_file: str = "logs/ollama.log", level: int = logging.INFO):
+        self.logger = self.service.setup_logger(
+            level=level,
+            log_file=log_file,
+            console=False
+        )
+        print(f"File logging configured: {logging.getLevelName(level)} level, file '{log_file}'")
+
+    def setup_logging_quiet(self):
+        self.logger = self.service.setup_logger(
+            level=logging.WARNING,
+            console=True
+        )
+        print("Quiet logging configured: WARNING level, console output")
+
+    def setup_logging_verbose(self, log_file: str = "logs/ollama_verbose.log"):
+        self.logger = self.service.setup_logger(
+            level=logging.DEBUG,
+            log_file=log_file,
+            console=True
+        )
+        print(f"Verbose logging configured: DEBUG level, console + file '{log_file}'")
+
+    def setup_logging_custom(
+        self, 
+        level: int = logging.INFO,
+        log_file: str | None = None,
+        console: bool = True
+    ):
+        self.logger = self.service.setup_logger(
+            level=level,
+            log_file=log_file,
+            console=console
+        )
+        level_name = logging.getLevelName(level)
+        output = []
+        if console:
+            output.append("console")
+        if log_file:
+            output.append(f"file '{log_file}'")
+        print(f"Custom logging configured: {level_name} level, {' + '.join(output)}")
+
+    def disable_logging(self):
+        if self.logger:
+            self.logger.handlers.clear()
+            self.logger.setLevel(logging.CRITICAL + 1)
+        print("Logging disabled")
+
+    def get_logging_status(self):
+        if self.logger is None:
+            print("Logging not configured")
+            return
+        
+        level = logging.getLevelName(self.logger.level)
+        handlers = []
+        
+        for handler in self.logger.handlers:
+            if isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler):
+                handlers.append("console")
+            elif isinstance(handler, logging.FileHandler):
+                handlers.append(f"file ({handler.baseFilename})")
+        
+        print(f"Logging Status:")
+        print(f"  Level: {level}")
+        print(f"  Outputs: {', '.join(handlers) if handlers else 'none'}")
+
+    def get_logger(self) -> logging.Logger:
+        if self.logger is None:
+            print("Logger not configured. Initializing with defaults...")
+            self.setup_logging_default()
+        
+        # if setup_logging_default() does not succeed, return dummy logger
+        if self.logger is None:
+            print("Logger not configured. Initializing with dummy logger...")
+            return logging.getLogger(__name__)
+        
+        return self.logger
+
+# OllamaHelper
+    def check_if_homebrew_is_installed(self):
+        installed = self.helper._is_homebrew_installed()
+        
+        if installed:
+            print("Homebrew is installed on system.")
+        else:
+            print("Homebrew not found.")
+
+    def check_if_winget_is_installed(self):
+        installed = self.helper._is_winget_installed()
+        
+        if installed:
+            print("Winget is installed on system.")
+        else:
+            print("Winget not found.")
+
+    def check_if_chocolatey_is_installed(self):
+        installed = self.helper._is_chocolatey_installed()
+        
+        if installed:
+            print("Chocolatey is installed on system.")
+        else:
+            print("Chocolatey not found.")
+
+    def try_installing_homebrew(self):
+        installed = self.helper._try_brew_install()
+        
+        if installed:
+            print("Homebrew successfully installed.")
+        else:
+            print("Error: While installing Homebrew.")
+
+    def try_installing_curl(self):
+        installed = self.helper._try_curl_install()
+        
+        if installed:
+            print("Curl successfully installed.")
+        else:
+            print("Error: While installing Curl.")
+
+    def try_installing_winget(self):
+        installed = self.helper._try_winget_install()
+        
+        if installed:
+            print("Winget successfully installed.")
+        else:
+            print("Error: While installing Winget.")
+
+    def try_installing_choco(self):
+        installed = self.helper._try_choco_install()
+        
+        if installed:
+            print("Chocolatey successfully installed.")
+        else:
+            print("Error: While installing Chocolatey.")
+
+    def try_installing_direct_on_windows_only(self):
+        installed = self.helper._try_direct_download_install_windows_only()
+        
+        if installed:
+            print("Ollama successfully installed.")
+        else:
+            print("Error: While installing Ollama.")
+
+    def show_manual_installation_instruction(self):
+        self.helper._show_manual_install_instructions()
+
+    def install_on_macos(self):
+        installed = self.helper._install_macos()
+        
+        if installed:
+            print("Ollama successfully installed on MacOS.")
+        else:
+            print("Error: While installing Ollama on MacOS.")
+
+    def install_on_linux(self):
+        installed = self.helper._install_linux()
+        
+        if installed:
+            print("Ollama successfully installed on Linux.")
+        else:
+            print("Error: While installing Ollama on Linux.")
+
+    def install_on_windows(self):
+        installed = self.helper._install_windows()
+        
+        if installed:
+            print("Ollama successfully installed on Windows.")
+        else:
+            print("Error: While installing Ollama on Windows.")
+
+    def validate_name_is_correct_for_model(self, model: str):
+        valid = self.helper.validate_model_name(model)
+        
+        if valid:
+            print(f"Model '{model}' is a valid name.")
+        else:
+            print(f"Model '{model}' is not a valid name.")
+
+    def estimate_prompt_tokenizer(self, text: str):
+        counter = self.helper.estimate_tokens(text)
+        print(f"Estimated Token: '{counter}'")
+
+    def search_models(self, model: str, models: list[str]):
+        status = self.helper.search_models(model, models)
+        
+        if status:
+            print(f"Model '{model}' is installed.")
+        else:
+            print(f"Model '{model}' is not installed.")
