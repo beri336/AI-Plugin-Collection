@@ -3,6 +3,7 @@
 import urllib.request
 import subprocess
 import tempfile
+import platform
 import shutil
 import os
 
@@ -133,4 +134,70 @@ class OllamaHelper:
                     os.remove(installer_path)
                 except OSError:
                     pass
+        return False
+
+    def _show_manual_install_instructions(self) -> None:
+        os_name = platform.system()
+        
+        instructions = {
+            "Darwin": """
+macOS:
+  1. Download from https://ollama.com/download
+  2. Or use: brew install ollama
+  3. Or run: curl -fsSL https://ollama.com/install.sh | sh
+""",
+            "Linux": """
+Linux:
+  Run: curl -fsSL https://ollama.com/install.sh | sh
+""",
+            "Windows": """
+Windows:
+  1. Download installer from https://ollama.com/download
+  2. Or use: winget install Ollama.Ollama
+  3. Or use: choco install ollama
+"""
+        }
+        
+        separator = "=" * 60
+        print(f"\n{separator}")
+        print("AUTOMATIC INSTALLATION FAILED")
+        print(separator)
+        print("\nPlease install Ollama manually:")
+        print("\n📥 Visit: https://ollama.com/download")
+        print("\nPlatform-specific instructions:")
+        print(instructions.get(os_name, "\nNo instructions available for this OS."))
+        print(f"{separator}\n")
+
+# Platform-Specific Installation
+    def _install_macos(self) -> bool:
+        if self._is_homebrew_installed() and self._try_brew_install():
+            return True
+        
+        if self._try_curl_install():
+            return True
+        
+        self._show_manual_install_instructions()
+        return False
+
+    def _install_linux(self) -> bool:
+        if self._is_homebrew_installed() and self._try_brew_install():
+            return True
+        
+        if self._try_curl_install():
+            return True
+        
+        self._show_manual_install_instructions()
+        return False
+
+    def _install_windows(self) -> bool:
+        if self._is_winget_installed() and self._try_winget_install():
+            return True
+        
+        if self._is_chocolatey_installed() and self._try_choco_install():
+            return True
+        
+        if self._try_direct_download_install_windows_only():
+            return True
+        
+        self._show_manual_install_instructions()
         return False
