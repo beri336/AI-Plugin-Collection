@@ -171,3 +171,84 @@ class OllamaManager():
     def refresh_list_of_models(self):
         self._backend.refresh_list_of_models()
         print("Refreshed the list of models.")
+
+    def get_all_running_models(self) -> None:
+        models = self._backend.get_running_models()
+        
+        if not models:
+            print("No models are currently active.")
+            return
+        
+        print(f"\n=== Currently Running Models ({len(models)}) ===\n")
+        for model in models:
+            print(f"• {model['name']}")
+            print(f"  Size: {model['size']}")
+            print(f"  Processor: {model['processor']}")
+            print(f"  Expires: {model['until']}\n")
+
+    def get_only_names_of_all_running_models(self) -> None:
+        models = self._backend._get_running_model_names()
+        
+        if len(models) > 0:
+            for i in models:
+                print(f"Model '{i['name']}' is currently active.")  
+        else:
+            print("No models are currently active.")
+
+    def start_running_model(self, model: str):
+        start = self._backend.start_running_model(model)
+        
+        if start:
+            print(f"Model '{model}' started successfully and is now available.")
+        else:
+            print(f"Error: While starting Model '{model}' and is not available.")
+
+    def stop_running_model(self, model: str, force: bool = False):
+        status = self._backend.stop_running_model(model, force)
+        
+        if status:
+            print(f"Model '{model}' was stopped successfully.")
+        else:
+            print(f"Error: While stopping Model '{model}'.")
+
+    def refresh_list_of_all_running_models(self):
+        self._backend.refresh_list_of_running_models()
+        print("Refreshed the list of all running models.")
+
+    def generate_response(self, model: str, prompt: str, options: dict | None = None):
+        if not model:
+            print("No model specified.")
+            return
+        if not prompt:
+            print("No prompt specified.")
+            return
+        
+        if self.backend_type == OllamaBackend.CMD:
+            response = self.cmd.generate(model, prompt)
+            
+            print("\n=== AI Response to given prompt ===")
+            print(f"{response}")
+        else:
+            response = self.api.generate(model, prompt, options)
+            
+            print("\n=== AI Response to given prompt ===")
+            print(f"{response}")
+
+    def generate_streamed_response(self, model: str, prompt: str, options: dict | None = None):
+        if not model:
+            print("No model specified.")
+            return
+        if not prompt:
+            print("No prompt specified.")
+            return
+        
+        if self.backend_type == OllamaBackend.CMD:
+            response = self.cmd.generate_stream(model, prompt)
+            
+            print("\n=== AI Response to given prompt ===")
+            print(f"{response}")
+        else:
+            response = self.api.generate_stream(model, prompt, options)
+            
+            print("\n=== AI Response to given prompt ===")
+            print(f"{response}")
