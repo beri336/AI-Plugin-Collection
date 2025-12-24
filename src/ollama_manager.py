@@ -255,6 +255,35 @@ class OllamaManager():
             print("\n=== AI Response to given prompt ===")
             print(f"{response}")
 
+# OllamaAPIManager only
+    def check_api_connection(self):
+        con = self.api._check_connection()
+
+        if con:
+            print("API is reachable.")
+        else:
+            print("API seems to be offline.")
+
+    def get_api_url(self, endpoint: str = ''):
+        print(f"API URL: '{self.api._get_url(endpoint)}'")
+
+    def get_api_host(self):
+        print(f"API Host: '{self.api.get_host()}'")
+
+    def set_api_host(self, new_host: str):
+        self.api.set_host(new_host)
+        print(f"New API Host set to: '{new_host}'")
+
+    def get_api_port(self):
+        print(f"API Port: '{self.api.get_port()}'")
+
+    def set_api_port(self, new_port: int):
+        self.api.set_port(new_port)
+        print(f"New API Port set to: '{new_port}'")
+
+    def get_api_base_url(self):
+        print(f"API Base URL: '{self.api.get_base_url()}'")
+
 # OllamaService
     def get_version(self):
         print(f"Current installed Ollama Version: '{self.service.get_version()}'.")
