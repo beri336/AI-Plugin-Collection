@@ -1,256 +1,262 @@
-# AI-Plugin-Collection [English]
+# AI Plugin Collection [English]
 
-![Banner (created by ChatGPT)](<pictures/Banner (created by ChatGPT).png>)
+![Banner (created by ChatGPT)](<docs/pictures/Banner (created by ChatGPT).png>)
 
 A comprehensive Python plugin for managing and controlling Ollama via API and CLI. This plugin provides a unified interface for model management, service control, and AI generation.
 
-## Language / Sprache
+## 🌐 Language / Sprache
 
 - 🇬🇧 English (this file)
-- 🇩🇪 [Deutsch](README.de.md)
+- 🇩🇪 [Deutsch](docs/README.de.md)
 
-## Features
+<br>
 
-- **Dual Backend Support**: Control via Ollama API or CLI
-- **Model Management**: List, load, delete, and monitor models
-- **Service Control**: Start, stop, and monitor Ollama service
-- **AI Generation**: Text generation with and without streaming
-- **Cross-Platform**: Support for Windows, macOS, and Linux
-- **Installation Helper**: Automatic installation of Ollama on various platforms
-- **Logging System**: Flexible logging with various configuration options
+## ⚡ Key Features
 
-## Table of Contents
+- **Dual Backend:** Seamless switch between API or CLI command execution
+- **Unified Manager:** One interface (`OllamaManager`) controlling all subsystems
+- **Model Management:** List, pull, delete and inspect models
+- **AI Generation:** Text generation (streamed or cached)
+- **Service Control:** Start/stop and perform system health checks
+- **Cache Integration:** Optional caching layer for repeated prompts
+- **Conversation Management:** Maintain contextual chat sessions
+- **Helper Tools:** Platform installation, model validation, token estimation
+- **Config Loader:** Load settings directly from JSON config files
+- **Cross‑Platform:** Works on macOS, Linux and Windows
 
-1. [Installation](#installation)
-2. [Quick Start](#quick-start)
-3. [Usage](#usage)
-   - [Manager Setup](#manager-setup)
-   - [Model Management](#model-management)
-   - [Running Models](#running-models)
-   - [AI Text Generation](#ai-text-generation)
-   - [Service Management](#service-management)
-   - [API-specific Functions](#api-specific-functions)
-   - [Logging Configuration](#logging-configuration)
-   - [Installation Helper](#installation-helper)
-   - [Utility Functions](#utility-functions)
-4. [Architecture](#architecture)
-5. [Backend Comparison](#backend-comparison)
-6. [Best Practices](#best-practices)
-7. [Example Workflow](#example-workflow)
-8. [Troubleshooting](#troubleshooting)
-9. [Contributors](#contributors)
-10. [License](#license)
-11. [Supported Platforms](#supported-platforms)
+<br>
 
-## Installation
+## 📚 Table of Contents
 
-### Prerequisites
+1. [Installation](#-installation)
+    - [Prerequisites](#-prerequisites)
+    - [Install Dependencies](#-install-dependencies)
+2. [Quick Start](#-quick-start)
+3. [Usage](#-usage)
+   - [Setup & Configuration](#️-setup--configuration)
+   - [Model Management](#-model-management)
+   - [Running Models](#-running-models)
+   - [AI Generation](#-ai-generation)
+   - [Conversation Example](#-conversation-example)
+   - [Service Management](#-service-management)
+   - [Helper Tools](#️-helper-tools)
+   - [Cache](#-cache)
+   - [Backend Control](#-backend-control)
+4. [Architecture Overview](#-architecture-overview)
+5. [Backend Comparison](#️-backend-comparison)
+6. [Best Practices](#-best-practices)
+7. [License](#-license)
+8. [Contributors](#-contributors)
+9. [Troubleshooting](#-troubleshooting)
+10. [Supported Platforms](#-supported-platforms)
+
+<hr><br>
+
+## 🧩 Installation
+
+### 🧱 Prerequisites
 
 - Python 3.8+
 - Ollama must be installed (or use the helper functions for installation)
 
-### Install Dependencies
+### 📦 Install Dependencies
 
-```
+Locally or in a virtual environment:
+
+```bash
 pip install -r requirements.txt
 ```
 
 Or directly:
 
-```
-pip install psutil requests
+```bash
+pip install psutil requests pytest pytest-cov
 ```
 
 Required packages:
 
-- `psutil` - For process management
-- `requests` - For HTTP requests to Ollama API
+| Package    | Purpose / Description                                                 |
+| ---------- | --------------------------------------------------------------------  |
+| psutil     | Process and system management (e.g., to check whether Ollama is running) |
+| requests   | HTTP client for calling the Ollama API                             |
+| pytest     | Framework for unit and integration testing                           |
+| pytest‑cov | Extension for measuring test coverage                           |
 
-## Quick Start
+### 🧪 Run Tests
 
-See also [example file](ollama_manager_usage_example.py) for more examples.
+For complete tests (including decorators, caching, helpers, etc.):
 
+```bash
+pytest -v
 ```
-from ollama_manager import OllamaManager, OllamaBackend
 
-# Initialize manager (default: API backend)
+Run a specific test:
+```bash
+pytest tests/test_service_manager.py
+```
+
+With **coverage report**:
+
+```bash
+pytest --cov=src --cov-report=term-missing
+```
+
+Optional detailed reports (HTML in the `htmlcov/` folder):
+
+```bash
+pytest --cov=src --cov-report=html
+open htmlcov/index.html  # or `start htmlcov/index.html` on Windows
+```
+
+<hr><br>
+
+## 🚀 Quick Start
+
+See also [example file](src/main.py) for a full demonstration.
+
+```py
+from modules.plugin_manager import OllamaManager
+
+# Initialize with API backend (default)
 manager = OllamaManager()
 
-# Load model
-manager.load_new_model("llama3.2:3b")
+# Run health check
+manager.health_check()
+
+# List models
+models = manager.list_models()
 
 # Generate text
-print("Assistant: ", end='', flush=True)
-manager.generate_streamed_response(
-    model="llama3.2:3b",
-    prompt="Write a short poem about coding"
-)
-print()
+manager.generate("llama3.2:3b", "Explain object‑oriented programming.")
 ```
 
-## Usage
+<hr><br>
 
-### Manager Setup
+## 💡 Usage
 
-```
-# Standard setup (API backend, localhost:11434)
-manager = OllamaManager()
+### ⚙️ Setup & Configuration
 
-# Custom setup (CLI backend, custom host/port)
-custom_manager = OllamaManager(
-    backend=OllamaBackend.CMD,
-    host="127.0.0.1",
-    port=12345
-)
+#### 🗂️ From JSON Config
+
+```py
+manager = OllamaManager.from_config_file("config.json", backend=OllamaBackend.API)
 ```
 
-### Model Management
+Config file example:
 
-```
-# List available models
-models = manager.get_list_of_models()
-detailed = manager.get_list_of_models_detailed()
-
-# Get model information
-info = manager.get_information_for_model("llama3.2:3b")
-
-# Load new model
-success = manager.load_new_model("llama3.2:3b")
-
-# Load model with progress
-for progress in manager.load_new_model_with_progress("llama3.2:3b"):
-    print(f"{progress}")
-    if progress.get('status') == 'completed':
-        print("Ready to use!")
-        break
-
-# Remove model
-manager.remove_model("llama3.2:3b")
-
-# Check if model exists
-exists = manager.check_if_model_exists("llama3.2:3b")
+```json
+{
+  "host": "localhost",
+  "port": 11434,
+  "default_model": "llama3.2:3b"
+}
 ```
 
-### Running Models
+<br>
 
+### 🤖 Model Management
+
+```py
+# List models
+manager.list_models()
+
+# Detailed list
+manager.list_models_detailed()
+
+# Model info
+manager.model_info("llama3.2:3b")
+
+# Pull and delete
+manager.pull_model("llama3.2:3b")
+manager.delete_model("llama3.2:3b")
 ```
+
+<br>
+
+### 🟢 Running Models
+
+```py
 # Show running models
-running = manager.get_all_running_models()
-names = manager.get_only_names_of_all_running_models()
+manager.list_running_models()
 
-# Start model
-manager.start_running_model("llama3.2:3b")
-
-# Stop model
-manager.stop_running_model("llama3.2:3b")
+# Start / stop model
+manager.start_model("llama3.2:3b")
+manager.stop_model("llama3.2:3b")
 
 # Refresh lists
-manager.refresh_list_of_models()
-manager.refresh_list_of_all_running_models()
+manager.refresh_running_models()
 ```
 
-### AI Text Generation
+<br>
 
+### 🧠 AI Generation
+
+```py
+# Generate once
+manager.generate("gemma3:4b", "Explain Python.")
+
+# Cached call (faster second time)
+manager.generate("llama3.2:3b", "Explain Python classes.", use_cache=True)
+
+# Stream output
+manager.generate_stream("llama3.2:3b", "Write a short poem about programming.")
 ```
-# Simple generation (non-streamed)
-response = manager.generate_response(
-    model="llama3.2:3b",
-    prompt="Explain Python in simple terms"
+
+<br>
+
+### 💬 Conversation Example
+
+```py
+conv = manager.start_conversation(
+    "llama3.2:3b",
+    system_message="You are a friendly assistant."
 )
-
-# Streaming generation
-print("Assistant: ", end='', flush=True)
-manager.generate_streamed_response(
-    model="llama3.2:3b",
-    prompt="Write a short poem about coding"
-)
-print()
+manager.chat(conv, "What is recursion?")
+manager.chat(conv, "Give me an example in Python.")
 ```
 
-### Service Management
+<br>
 
-```
+### 🧩 Service Management
+
+```py
 # Get Ollama version
-version = manager.get_version()
+print(manager.get_version())
 
 # Check operating system
-os_name = manager.get_operating_system()
+print(manager.get_operating_system())
 
 # Check status
-is_installed = manager.get_is_installed()
-is_running = manager.get_is_process_running()
+is_installed = manager.is_installed()
+print(is_installed)
+is_running = manager.is_process_active()
+print(is_running)
 api_ready = manager.get_api_status()
+print(api_ready)
 
 # Installation path
 path = manager.get_installation_path()
+print(path)
 
 # Start/stop service
-manager.start_ollama()
-manager.stop_ollama()
+manager.start_service()
+manager.stop_service()
 
 # Health check
 status = manager.health_check()
+print(status)
 ```
 
-### API-specific Functions
+<br>
 
-```
-# Check API connection
-manager.check_api_connection()
+### 🛠️ Helper Tools
 
-# API configuration
-url = manager.get_api_url("/endpoint")
-host = manager.get_api_host()
-manager.set_api_host("new_host")
+```py
+manager.validate_model_name("llama3.2:3b")
+manager.estimate_tokens("Sample prompt text")
 
-port = manager.get_api_port()
-manager.set_api_port(11434)
-
-base_url = manager.get_api_base_url()
-```
-
-### Logging Configuration
-
-```
-# Standard setup
-manager.setup_logging_default()
-
-# Debug mode
-manager.setup_logging_debug()
-
-# File logging only
-manager.setup_logging_file_only()
-
-# Quiet mode
-manager.setup_logging_quiet()
-
-# Verbose mode
-manager.setup_logging_verbose()
-
-# Custom configuration
-import logging
-manager.setup_logging_custom(
-    level=logging.DEBUG,
-    log_file="logs/my_app.log",
-    console=True
-)
-
-# Disable logging
-manager.disable_logging()
-
-# Get status
-status = manager.get_logging_status()
-
-# Use logger
-logger = manager.get_logger()
-logger.info("Application started")
-```
-
-### Installation Helper
-
-```
 # macOS installation
-manager.check_if_homebrew_is_installed()
+manager.check_homebrew_installed()
 manager.try_installing_homebrew()
 manager.install_on_macos()
 
@@ -259,8 +265,8 @@ manager.try_installing_curl()
 manager.install_on_linux()
 
 # Windows installation
-manager.check_if_winget_is_installed()
-manager.check_if_chocolatey_is_installed()
+manager.check_winget_installed()
+manager.check_chocolatey_installed()
 manager.try_installing_winget()
 manager.try_installing_choco()
 manager.try_installing_direct_on_windows_only()
@@ -270,72 +276,84 @@ manager.install_on_windows()
 manager.show_manual_installation_instruction()
 ```
 
-### Utility Functions
+<br>
 
-```
-# Validate model name
-is_valid = manager.validate_name_is_correct_for_model("llama3.2:3b")
+### 🧮 Cache
 
-# Estimate tokens
-token_count = manager.estimate_prompt_tokenizer("Your prompt text here")
-
-# Search models
-models_list = manager.get_list_of_models()
-results = manager.search_models("llama", models_list)
+```py
+manager.cache_stats()
+manager.clear_expired_cache()
+manager.export_cache_info()
 ```
 
-## Architecture
+<br>
 
-The plugin consists of several specialized components:
+### 🔀 Backend Control
 
-### OllamaManager
+```py
+# Switch between API and CMD
+manager.switch_backend(mode=OllamaBackend.API)
+manager.switch_backend(mode=OllamaBackend.CMD)
+print(manager.get_backend_type())
+```
 
-Main interface that unifies all functions and supports two backend modes.
+<hr><br>
 
-### OllamaAPIManager
+## 🧭 Architecture Overview
 
-Communication with Ollama via REST API with the following endpoints:
+### 🧩 Module
+```bash
+modules/
+├── api_manager.py              # REST API interactions
+├── cmd_manager.py              # CLI commands
+├── conversation_manager.py     # Contextual conversation system
+├── plugin_manager.py           # Unified OllamaManager facade
+└── service_manager.py          # Process & service control
+```
 
-- `/api/tags` - List models
-- `/api/show` - Model information
-- `/api/pull` - Download models
-- `/api/delete` - Delete models
-- `/api/generate` - Generate text
-- `/api/ps` - Running models
+### 🧠 Core
+```bash
+modules/
+├── cache_manager.py            # Cache system
+├── decorators.py               # Decorators & validation
+└── helpers.py                  # OS utilities & installers
+```
 
-### OllamaCMDManager
+### ⚙️ Config
+```bash
+modules/
+└── settings.py                 # All modifiable settings
+```
 
-Control via CLI commands:
+### ⚙️ Tests
+```bash
+tests/
+├── test_api_manager.py             # Tests for REST API calls
+├── test_cache_manager.py           # Checks cache system and SQLite logic
+├── test_cmd_manager.py             # CLI commands and parameter parsing
+├── test_conversation_manager.py    # Context management and conversation flow
+├── test_decorators.py              # All decorator and validation functions
+├── test_helpers.py                 # Installation routines, Brew/Winget, etc.
+├── test_plugin_manager.py          # Integration of OllamaManager / plugins
+├── test_service_manager.py         # Process control and status checking
+└── test_settings.py                # Configuration and JSON loading functions
+```
 
-- `ollama list` - List models
-- `ollama show` - Model details
-- `ollama pull` - Load models
-- `ollama rm` - Delete models
-- `ollama run` - Generate text
-- `ollama ps` - Running models
-- `ollama stop` - Stop model
+<hr><br>
 
-### OllamaService
+> The plugin consists of several specialized components:
 
-Service management for:
+- **OllamaManager:** Unified interface combining all modules into one facade.
+- **OllamaAPIManager:** REST API communication through:
+  `/api/tags`, `/api/show`, `/api/pull`, `/api/delete`, `/api/generate`, `/api/ps`
+- **OllamaCMDManager:** Command-line execution:
+  `ollama list`, `ollama show`, `ollama pull`, `ollama rm`, `ollama run`, `ollama ps`, `ollama stop`
+- **OllamaService:** Service lifecycle management and health monitoring.
+- **OllamaHelper:** Platform installers, validation, and utility functions.
 
-- Installation check
-- Process monitoring
-- API reachability
-- Service start/stop
-- Version information
+<hr><br>
 
-### OllamaHelper
-
-Helper functions for:
-
-- Platform-specific installation
-- Package manager integration
-- Model name validation
-- Token estimation
-- Model search
-
-## Backend Comparison
+## ⚖️ Backend Comparison
 
 | Feature | API Backend | CMD Backend |
 |---------|------------|-------------|
@@ -345,93 +363,51 @@ Helper functions for:
 | Parameter Control | ✅ Full | ❌ Limited |
 | Dependencies | requests | subprocess |
 
-## Best Practices
+<hr><br>
 
-- Use **API backend** for performance-critical applications
-- Use **CMD backend** when API is not available
-- Use `generate_streamed_response()` for interactive UIs
-- Enable logging during development with `setup_logging_debug()`
-- Check `health_check()` before important operations
-- Use `pull_model_with_progress()` for better user experience
+## 💎 Best Practices
 
-## Example Workflow
+- Use **API backend** for production or async apps
+- Use **CMD backend** when the local API isn’t reachable
+- Run `health_check()` before critical operations
+- Cache repeated generations for better performance
+- Keep `verbose=True` during development for logs and printouts
 
-```
-from ollama_manager import OllamaManager
+<hr><br>
 
-# Setup
-manager = OllamaManager()
-manager.setup_logging_default()
+## 📜 License
 
-# Health check
-if not manager.health_check():
-    print("Ollama is not running. Starting...")
-    manager.start_ollama()
+This project is open source. See [License](LICENSE).
 
-# Prepare model
-model = "llama3.2:3b"
-if not manager.check_if_model_exists(model):
-    print(f"Downloading {model}...")
-    manager.load_new_model(model)
+<hr><br>
 
-# Use model
-print("Assistant: ", end='', flush=True)
-manager.generate_streamed_response(
-    model=model,
-    prompt="Hello! How are you?"
-)
-print("\n")
+## 🙌 Contributors
 
-# Cleanup
-manager.stop_running_model(model)
+![created-by](docs/pictures/created-by.svg)
+
+<hr><br>
+
+## 🧯 Troubleshooting
+
+### 🧰 Development Installation
+
+If you encounter import issues (e.g. modules not found), try:
+
+```bash
+pip install -e .
 ```
 
-## Troubleshooting
+This installs the project in **editable mode**, linking your local `src/` folder so that changes take effect immediately.
 
-### Ollama won't start
-
-```
-# Check installation
-if not manager.get_is_installed():
-    manager.install_on_macos()  # or install_on_linux() / install_on_windows()
-
-# Check status
-status = manager.health_check()
-print(status)
+Then you can import directly:
+```py
+from modules.service_manager import Service
 ```
 
-### API not reachable
+<hr><br>
 
-```
-# Check host and port
-print(manager.get_api_host())
-print(manager.get_api_port())
+## 💻 Supported Platforms
 
-# Set custom values
-manager.set_api_host("127.0.0.1")
-manager.set_api_port(11434)
-```
-
-### Model won't load
-
-```
-# Check if model exists
-exists = manager.check_if_model_exists("model-name")
-
-# Validate name
-is_valid = manager.validate_name_is_correct_for_model("model-name")
-```
-
-## Contributors
-
-![created-by](pictures/created-by.svg)
-
-## License
-
-This project is open source. Please note Ollama's license terms.
-
-## Supported Platforms
-
-- ✅ macOS (Intel & Apple Silicon)
-- ✅ Linux (Ubuntu, Debian, Fedora, etc.)
-- ✅ Windows 10/11
+- ✅ macOS (Intel & Apple Silicon)
+- ✅ Linux (Ubuntu, Debian, Fedora…)
+- ✅ Windows 10 / 11
