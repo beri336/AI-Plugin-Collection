@@ -1,0 +1,83 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ai-plugin-collection"  # Package-Namen sollten lowercase mit Bindestrichen sein
+dynamic = ["version"]
+description = "Unified Ollama API and CLI management plugin"  # Beschreibung hinzufügen
+authors = [
+    {name = "Your Name", email = "your.email@example.com"}
+]
+readme = "README.md"  # Falls vorhanden
+requires-python = ">=3.9"
+license = {text = "MIT"}  # Oder deine gewählte Lizenz
+keywords = ["ollama", "ai", "llm", "plugin"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+    "requests>=2.31.0",
+    "psutil>=5.9.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-mock>=3.12.0",
+    "pytest-cov>=4.1.0",  # Für Coverage
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.dynamic]
+version = {attr = "__version__"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+# exclude = ["tests*"]  # Optional: Tests aus dem Package ausschließen
+
+# Pytest configuration
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = [
+    "--cov=src",
+    "--cov-report=html",  # Erstellt HTML-Report in htmlcov/
+    "--cov-report=term-missing",
+    "--tb=short",
+    "-v",
+    "--strict-markers",  # Verhindert Tippfehler in Markers
+]
+testpaths = ["tests"]
+pythonpath = ["src"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+]
+
+# Coverage configuration
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/__pycache__/*",
+    "*/site-packages/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+]
